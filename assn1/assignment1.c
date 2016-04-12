@@ -8,7 +8,7 @@
 
 #include "mt19937ar.c"
 
-#define MAX 2
+#define MAX 32
 struct Data {
         int number;
         int sleepTime;
@@ -36,34 +36,35 @@ void interruptHandler(int signal)
 void *producer(void *arg){
         struct Data temp;
         int index = 0;
+        // Generate random sleep time for producer
         int sleepT = genrand_int32() % 5 + 3;
         while(1){
                 sleep(sleepT);
+                // Protect buffer
                 pthread_mutex_lock(&mut);
+                // Check if the buffer is full
                 while (currentIndex == MAX){
                         printf("Wainting for a consume\n");
                         pthread_cond_wait(&conditionProduce, &mut);
                 }
-
+                // Generate random values to produce
                 temp.number = genrand_int32() % 10;
                 temp.sleepTime = genrand_int32() % 8 + 2;
+                // Add to buffer
                 buff[currentIndex] = temp;
                 printf("Producer: Produced item %d, with number %d, and sleep time %d\n", currentIndex, temp.number, temp.sleepTime);
                 currentIndex++;
+                // Wake up consumer
                 pthread_cond_signal(&conditionConsume);
                 pthread_mutex_unlock(&mut);
-                //index++;
-                //if(index == MAX)
-                //        index = 0;
         }
 }
 
 void *consumer(void *arg)
 {
-        //int sleepT;
-        //struct Data temp;
         int index = 0;
         while(1){
+                // Protect Buffer
                 pthread_mutex_lock(&mut);
                 // Check to see if there's anything in the buffer
                 // If not, wait
@@ -71,7 +72,7 @@ void *consumer(void *arg)
                         printf("waiting for produce\n");
                         pthread_cond_wait(&conditionConsume, &mut);
                 }
-                pthread_mutex_unlock(&mut); /* release the buffer */
+                pthread_mutex_unlock(&mut);
 
                 // 'Consume' item
                 sleep(buff[currentIndex-1].sleepTime);
@@ -81,14 +82,12 @@ void *consumer(void *arg)
                 currentIndex--;
                 pthread_cond_signal(&conditionProduce);
                 pthread_mutex_unlock(&mut);
-                //index++;
-                //if(index == MAX)
-                //        index = 0;
         }
 }
 
 int main()
 {
+        // Initalize twister
         init_genrand(time(NULL));
         signal(SIGINT, interruptHandler);
         memset(buff, 0, sizeof(buff));
