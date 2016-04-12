@@ -18,10 +18,13 @@ concurrency: assignment1.c
 
 writeup:
 	latex hw1.tex
+	bibtex hw1
+	latex hw1.tex
+	latex hw1.tex
 	dvips -R -Poutline -t letter hw1.dvi -o hw1.ps
 	ps2pdf hw1.ps
 
 clean:
-	rm -f *.pdf *.ps *.dvi *.out *.log *.aux *.bbl *.blg *.pyg
+	rm -f assignment1 *.pdf *.ps *.dvi *.out *.log *.aux *.bbl *.blg *.pyg
 
 .PHONY: all show clean ps pdf showps

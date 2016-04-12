@@ -34,17 +34,19 @@ void interruptHandler(int signal)
 }
 
 void *producer(void *arg){
+        // temp to store random generated values
         struct Data temp;
         int index = 0;
         // Generate random sleep time for producer
         int sleepT = genrand_int32() % 5 + 3;
         while(1){
+                // Initial sleep
                 sleep(sleepT);
                 // Protect buffer
                 pthread_mutex_lock(&mut);
                 // Check if the buffer is full
                 while (currentIndex == MAX){
-                        printf("Wainting for a consume\n");
+                        printf("Waiting for a consume\n");
                         pthread_cond_wait(&conditionProduce, &mut);
                 }
                 // Generate random values to produce
@@ -66,8 +68,7 @@ void *consumer(void *arg)
         while(1){
                 // Protect Buffer
                 pthread_mutex_lock(&mut);
-                // Check to see if there's anything in the buffer
-                // If not, wait
+                // Check to see if there's anything in the buffer, if not wait
                 while (currentIndex == 0){
                         printf("waiting for produce\n");
                         pthread_cond_wait(&conditionConsume, &mut);
@@ -77,9 +78,11 @@ void *consumer(void *arg)
                 // 'Consume' item
                 sleep(buff[currentIndex-1].sleepTime);
 
+                // Protect buffer while we 'consume'
                 pthread_mutex_lock(&mut);
                 printf("Consumer: Consumed item: %d, with value: %d\n", currentIndex-1, buff[currentIndex-1].number);
                 currentIndex--;
+                // Wake up producer
                 pthread_cond_signal(&conditionProduce);
                 pthread_mutex_unlock(&mut);
         }

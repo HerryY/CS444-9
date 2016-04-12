@@ -9,11 +9,16 @@
 \usepackage{float}
 \usepackage{color}
 \usepackage{url}
+\usepackage[noadjust]{cite}
 
 \usepackage{balance}
 \usepackage[TABBOTCAP, tight]{subfigure}
 \usepackage{enumitem}
 \usepackage{pstricks, pst-node}
+
+\nocite{*}
+
+\usepackage{listings}
 
 \usepackage{geometry}
 \geometry{textheight=8.5in, textwidth=6in}
@@ -25,11 +30,11 @@
 
 \usepackage{hyperref}
 \usepackage{geometry}
-
+\linespread{1}
 \def\name{McKenna Jones}
 
 \usepackage{titling}
-\title{CS444 Project 1: Getting Acquainted}
+\title{Project 1: Getting Acquainted}
 \author{McKenna Jones}
 \date{April 11th, 2016}
 
@@ -50,10 +55,14 @@
 \begin{document}
 \begin{titlepage}
 
-
 \maketitle
+\begin{center}
+CS444: Operating Systems Two \\
+Spring 2016
+\vspace{50 mm}
+\end{center}
 \begin{abstract}
-test
+This is the first project for CS444, Operating Systems Two. In this project we first become familiar with Linux Kernel, and thinking in parallel. This document contains info about the commands and work needed to setup the Linux Kernel and run it using a tool called qemu. It also contains the code and discussion of our first concurrency exercise, the producer and consumer problem. 
 \end{abstract}
 \end{titlepage}
 \section{Linux Kernel Setup}
@@ -75,11 +84,12 @@ test
 \end{enumerate}
 
 \subsection{Explanation of flags for qemu command}
+The description of the flags were found using the QEMU Emulator User Documentation \cite{qemu}
 \begin{itemize}
 \item -gdb tcp::5564 \\
 Wait for gdb connection on device dev. In this case, dev is tcp::5564.
 \item -S \\
-Do not start CPU at startup
+Do not start CPU at startup.
 \item -nographic \\
 This command totally disables graphical output so qemu is a simple command line application. 
 \item -kernel bzImage-qemux86.bin \\
@@ -87,17 +97,201 @@ This uses bzImage as the kernel image.
 \item -drive file=core-image-lsb-sdk-qemux86.ext3,if=virtio \\
 This option defines which type of interface the drive is connected to. In this case it is a virtio drive. 
 \item -enable-kvm \\
-Enable KVM full virtualization support
+Enable KVM full virtualization support.
 \item -net none \\
-This creates a new network interface card. For our purposes this is not nessesary
+This creates a new network interface card. For our purposes this is not necessary.
 \item -usb \\ 
-This enables the USB driver
+This enables the USB driver.
 \item -localtime \\ 
+Setting the real time clock to local time
 \item --no-reboot \\
+Exit instead of rebooting.
 \item --append "root=/dev/vda rw console=ttyS0 debug" \\
+Use cmdline as kernel command line. In this case we used: root=/dev/vda rw console=ttyS0 debug as our command line option.
 \end{itemize}
 
+\section{Concurrency Problem: The Producer-Consumer Problem}
+\subsection{What do you think the main point of this assignment is?}
+The main point of this assignment was to become familiar with thinking in parallel. This is a very important skill for a computer science student to have, and as the Professor mentioned, some companies view it as a fundamental skill. That being said this assignment was also a good introduction to the work load of the class. 
+\subsection{How did you personally approach the problem? Design decisions, algorithm, etc.}
+First I started to think about the problem on my own. The specifications for the problem are very specific so it was easy to know in theory what the program should do and what data structures to use. I knew that I needed a struct with the number and sleepTime variables to start out. The basic starting structure for my producer function would be to sleep, check if the buffer is full, then generate the new values, and print some info. The consumer would be very similar. It would first check to see if the buffer is empty, sleep, and then consume (print). The main trouble I had with this assignment was working with threads. For this I referenced stack overflow quite a bit. One post in specific helped me a lot with the assignment, which I have referenced in my bibliography. \cite{stack}
+\subsection{How did you ensure your solution was correct?}
+To test this program I did a couple of things. First of all I lowered the max buffer size from 32 to a lower number like 3 or 2. The functionality I was mainly concerned about is what happens when the buffer is full or the buffer is empty. If the consumer tries to consume while the buffer is empty it should block until a producer adds a new item. Similarly, if the producer is trying to produce an item and the buffer is full it should block until a consumer removes an item. To test this I added a couple print statements that let me know when either thread is blocking. Then I made sure that they were blocking at the appropriate times.
+I also needed to make sure that when an item is being added to or removed from the buffer, each thread has exclusive access. I simply tested this by making sure the output for each thread made logical sense.
+\subsection{What did you learn?}
+I learned how to better think in parallel after completing this assignment. Going into this assignment I did not have much experience with this. I also learned how to use pthreads. I had a little experience with this from CS344, but I feel more comfortable with them now. 
+
+\lstset{language=C,
+                basicstyle=\ttfamily,
+                keywordstyle=\color{blue}\ttfamily,
+                stringstyle=\color{red}\ttfamily,
+                commentstyle=\color{green}\ttfamily,
+                morecomment=[l][\color{magenta}]{\#}
+}
+\subsection{Code for Concurrency Solution}
+\begin{lstlisting}
+#include <stdio.h>
+#include <pthread.h>
+#include <time.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <signal.h>
+
+#include "mt19937ar.c"
+
+#define MAX 32
+struct Data {
+        int number;
+        int sleepTime;
+};
+int currentIndex = 0;
+
+struct Data buff[MAX];
+pthread_mutex_t mut;
+pthread_cond_t conditionConsume;
+pthread_cond_t conditionProduce;
+pthread_t produce;
+pthread_t consume;
+
+void interruptHandler(int signal)
+{
+	if(signal == SIGINT)
+	{
+                // Detatch both threads
+		pthread_detach(produce);
+                pthread_detach(consume);
+		exit(EXIT_SUCCESS);
+	}
+}
+
+void *producer(void *arg){
+        // temp to store random generated values
+        struct Data temp;
+        int index = 0;
+        // Generate random sleep time for producer
+        int sleepT = genrand_int32() % 5 + 3;
+        while(1){
+                // Initial sleep
+                sleep(sleepT);
+                // Protect buffer
+                pthread_mutex_lock(&mut);
+                // Check if the buffer is full
+                while (currentIndex == MAX){
+                        printf("Waiting for a consume\n");
+                        pthread_cond_wait(&conditionProduce, &mut);
+                }
+                // Generate random values to produce
+                temp.number = genrand_int32() % 10;
+                temp.sleepTime = genrand_int32() % 8 + 2;
+                // Add to buffer
+                buff[currentIndex] = temp;
+                printf("Producer: Produced item %d, with number %d, and sleep time %d\n", currentIndex, temp.number, temp.sleepTime);
+                currentIndex++;
+                // Wake up consumer
+                pthread_cond_signal(&conditionConsume);
+                pthread_mutex_unlock(&mut);
+        }
+}
+
+void *consumer(void *arg)
+{
+        int index = 0;
+        while(1){
+                // Protect Buffer
+                pthread_mutex_lock(&mut);
+                // Check to see if there's anything in the buffer, if not wait
+                while (currentIndex == 0){
+                        printf("waiting for produce\n");
+                        pthread_cond_wait(&conditionConsume, &mut);
+                }
+                pthread_mutex_unlock(&mut);
+
+                // 'Consume' item
+                sleep(buff[currentIndex-1].sleepTime);
+
+                // Protect buffer while we 'consume'
+                pthread_mutex_lock(&mut);
+                printf("Consumer: Consumed item: %d, with value: %d\n", currentIndex-1, buff[currentIndex-1].number);
+                currentIndex--;
+                // Wake up producer
+                pthread_cond_signal(&conditionProduce);
+                pthread_mutex_unlock(&mut);
+        }
+}
+
+int main()
+{
+        // Initalize twister
+        init_genrand(time(NULL));
+        signal(SIGINT, interruptHandler);
+        memset(buff, 0, sizeof(buff));
+
+        // Initializing Variables
+        pthread_cond_init(&conditionProduce, NULL);
+        pthread_cond_init(&conditionConsume, NULL);
+        pthread_mutex_init(&mut, NULL);
+
+        // Creating threads
+        pthread_create(&consume, NULL, consumer, NULL);
+        pthread_create(&produce, NULL, producer, NULL);
+
+        // Joining threads
+        pthread_join(produce, NULL);
+        pthread_join(consume, NULL);
+
+        return 0;
+}
+
+
+\end{lstlisting}
+
+\section{Version Control Log}
+\begin{center}
+ \begin{tabular}{||c c c c c||} 
+ \hline
+ Date & Commit & Insertions & Deletions & Message \\ [0.5ex] 
+ \hline\hline
+ 4/8/16 & d000cfaf2d376b3d9fd6d64b8d73e8a83a05f4b0 & 140 & 0 & Concurrency progress, still broken\\ 
+ \hline
+ 4/8/16 & b560b86cd87dfce8e3b482fe251cded775b6725f & 2 & 0 & Merge branch 'master'\\
+ \hline
+ 4/10/16 & d3d829a7b0eed4765a4866cde7796b238d5688b2 & 158 & 0 & Added summaries\\
+ \hline
+ 4/11/16 & 8a00a741f5d58aebc8c6fa2d24495704daa6fff1 & 4082 & 0 & added scripts for qemu\\
+ \hline
+ 4/11/16 & e4787786352a2e2365661a6d2ebedddf8464d7d2 & 6816 & 83 & concurrency final and writeup \\ 
+ \hline
+ 4/11/16 & 68b03f5217616a2fc3e608cf254549fb571161d8 & 372 & 11 & Finalized concurrency\\
+ [1ex] 
+ \hline
+\end{tabular}
+\end{center}
 %input the pygmentized output of mt19937ar.c, using a (hopefully) unique name
 %this file only exists at compile time. Feel free to change that.
 
+\section{Work Log}
+\begin{center}
+ \begin{tabular}{||c c c ||} 
+ \hline
+ Date & Hours & Work Done\\ [0.5ex] 
+ \hline\hline
+ 4/2/16 & 4 & Worked on Kernel, didn't finish\\ 
+ \hline
+ 4/3/16 & 2 & Built Kernel and got it running with qemu\\
+ \hline
+ 4/5/16 & 2 & Started concurrency\\
+ \hline
+ 4/6/16 & 1 & Got pthreads working\\
+ \hline
+ 4/9/16 & 2 & Started writeup \\ 
+ \hline
+ 4/11/16 & 9 & Finalized concurrency and writeup\\
+ [1ex] 
+ \hline
+\end{tabular}
+\end{center}
+
+\bibliographystyle{IEEEtran}
+\bibliography{hw1}
 \end{document}
