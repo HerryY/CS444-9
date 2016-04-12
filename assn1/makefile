@@ -14,17 +14,11 @@ PDF	= $(SRC:%.tex=%.pdf)
 all: writeup concurrency
 
 concurrency: assignment1.c
-	gcc assignment1.c -o assignment1 -Wall -Werror -lpthread
+	gcc assignment1.c -o assignment1 -std=c99 -g -lpthread
 
-writeup: dvi ps pdf
-
-dvi: hw1.tex
-	${TEX} hw1.tex
-
-ps: dvi
-	${DVIPS} -R -Poutline -t letter hw1.dvi -o hw1.ps
-
-pdf: ps
+writeup:
+	latex hw1.tex
+	dvips -R -Poutline -t letter hw1.dvi -o hw1.ps
 	ps2pdf hw1.ps
 
 clean:

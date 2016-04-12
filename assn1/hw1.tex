@@ -1,0 +1,103 @@
+\documentclass[letterpaper,10pt,titlepage,draftclsnofoot,onecolumn]{IEEEtran}
+
+\usepackage{graphicx}                                        
+\usepackage{amssymb}                                         
+\usepackage{amsmath}                                         
+\usepackage{amsthm}                                          
+
+\usepackage{alltt}                                           
+\usepackage{float}
+\usepackage{color}
+\usepackage{url}
+
+\usepackage{balance}
+\usepackage[TABBOTCAP, tight]{subfigure}
+\usepackage{enumitem}
+\usepackage{pstricks, pst-node}
+
+\usepackage{geometry}
+\geometry{textheight=8.5in, textwidth=6in}
+
+%random comment
+
+\newcommand{\cred}[1]{{\color{red}#1}}
+\newcommand{\cblue}[1]{{\color{blue}#1}}
+
+\usepackage{hyperref}
+\usepackage{geometry}
+
+\def\name{McKenna Jones}
+
+\usepackage{titling}
+\title{CS444 Project 1: Getting Acquainted}
+\author{McKenna Jones}
+\date{April 11th, 2016}
+
+%pull in the necessary preamble matter for pygments output
+\input{pygments.tex}
+
+%% The following metadata will show up in the PDF properties
+\hypersetup{
+  colorlinks = true,
+  urlcolor = black,
+  pdfauthor = {\name},
+  pdfkeywords = {cs444 ``operating systems'' },
+  pdftitle = {CS 444 Project 1: Getting Acquainted},
+  pdfsubject = {CS 311 Project 1},
+  pdfpagemode = UseNone
+}
+
+\begin{document}
+\begin{titlepage}
+
+
+\maketitle
+\begin{abstract}
+test
+\end{abstract}
+\end{titlepage}
+\section{Linux Kernel Setup}
+\subsection{Commands used to setup kernel and qemu}
+\begin{enumerate}
+\item (os-class) mkdir CS444-064
+\item (os-class) cd CS444-064
+\item (os-class) git clone git://git.yoctoproject.org/linux-yocto-3.14
+\item (os-class) git checkout v3.14.26
+\item (os-class) source /scratch/opt/environment-setup-i586-poky-linux.csh
+\item (os-class) cp /scratch/spring2015/files/config-3.14.26-yocto-qemu .config
+\item (os-class) cp /scratch/spring2015/files/bzImage-qemux86.bin
+\item (os-class) cp /scratch/spring2015/files/core-image-lsb-qemux86.ext3
+\item (os-class) make -j4 all
+\item (os-class) qemu-system-i386 -gdb tcp::5564 -S -nographic -kernel bzImage-qemux86.bin -drive file=core-image-lsb-sdk-qemux86.ext3,if=virtio -enable-kvm -net none -usb -localtime --no-reboot --append "root=/dev/vda rw console=ttyS0 debug"
+\item (os-class) gdb
+\item (gdb) target remote :5564
+\item (gdb) continue
+\end{enumerate}
+
+\subsection{Explanation of flags for qemu command}
+\begin{itemize}
+\item -gdb tcp::5564 \\
+Wait for gdb connection on device dev. In this case, dev is tcp::5564.
+\item -S \\
+Do not start CPU at startup
+\item -nographic \\
+This command totally disables graphical output so qemu is a simple command line application. 
+\item -kernel bzImage-qemux86.bin \\
+This uses bzImage as the kernel image.
+\item -drive file=core-image-lsb-sdk-qemux86.ext3,if=virtio \\
+This option defines which type of interface the drive is connected to. In this case it is a virtio drive. 
+\item -enable-kvm \\
+Enable KVM full virtualization support
+\item -net none \\
+This creates a new network interface card. For our purposes this is not nessesary
+\item -usb \\ 
+This enables the USB driver
+\item -localtime \\ 
+\item --no-reboot \\
+\item --append "root=/dev/vda rw console=ttyS0 debug" \\
+\end{itemize}
+
+%input the pygmentized output of mt19937ar.c, using a (hopefully) unique name
+%this file only exists at compile time. Feel free to change that.
+
+\end{document}
