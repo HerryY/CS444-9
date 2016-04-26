@@ -1,0 +1,271 @@
+\documentclass[letterpaper,10pt,titlepage,draftclsnofoot,onecolumn]{IEEEtran}
+
+\usepackage{graphicx}                                        
+\usepackage{amssymb}                                         
+\usepackage{amsmath}                                         
+\usepackage{amsthm}                                          
+
+\usepackage{alltt}                                           
+\usepackage{float}
+\usepackage{color}
+\usepackage{url}
+\usepackage[noadjust]{cite}
+
+\usepackage{balance}
+\usepackage[TABBOTCAP, tight]{subfigure}
+\usepackage{enumitem}
+\usepackage{pstricks, pst-node}
+
+\nocite{*}
+
+\usepackage{listings}
+
+\usepackage{geometry}
+\geometry{textheight=8.5in, textwidth=6in}
+
+%random comment
+
+\newcommand{\cred}[1]{{\color{red}#1}}
+\newcommand{\cblue}[1]{{\color{blue}#1}}
+
+\usepackage{hyperref}
+\usepackage{geometry}
+\linespread{1}
+\def\name{McKenna Jones}
+
+\usepackage{titling}
+\title{Writing Assignment 1}
+\author{McKenna Jones}
+\date{April 21th, 2016}
+
+%pull in the necessary preamble matter for pygments output
+\input{pygments.tex}
+
+%% The following metadata will show up in the PDF properties
+\hypersetup{
+  colorlinks = true,
+  urlcolor = black,
+  pdfauthor = {\name},
+  pdfkeywords = {cs444 ``operating systems'' },
+  pdftitle = {CS 444 Writing Assignment 1},
+  pdfsubject = {CS 311 Project 1},
+  pdfpagemode = UseNone
+}
+
+\begin{document}
+\begin{titlepage}
+
+\maketitle
+\begin{center}
+CS444: Operating Systems Two \\
+Spring 2016
+\vspace{50 mm}
+\end{center}
+\begin{abstract}
+In this paper we compare two different operating systems, FreeBSD and Windows, to Linux. The topics that are covered are processes, threads, and CPU scheduling. We will begin by examining each of the three topics in FreeBSD and Windows, and then look at how they are similar and or different in Linux.  
+\end{abstract}
+\end{titlepage}
+\section{Windows}
+\subsection{Processes}
+In windows each process is represented by an executive process structure. The executive process, or EPROCESS is composed of different attributes relating to a process, as well as pointers to other related data structures. Every EPROCESS is encapsulated as a process object. This is controlled by the executive object manager. This is a slightly confusing abstraction because processes are not actually named objects, so they are not visible by the WinObj tool. \cite{windows}
+
+The data structure of a process is divided into isolated and layered modules, each of which has different naming conventions. The very first member of the executive process structure is the Process Control Block. This particular process is modeled after a kernel process structure. This kernel structure process can be seen below: 
+\begin{lstlisting}
+lkd> dt _kprocess
+nt!_KPROCESS
++0x000 Header				: _DISPATCHER_HEADER
++0x010 ProfileListHead 		: _LIST_ENTRY
++0x018 DirectoryTableBase	: Uint4B
+...
++0x074 StackCount			: _KSTACK_COUNT
++0x078 ProcessListEntry 	: _LIST_ENTRY
++0x080 CycleTime			:  Uint8B
++0x088 KernelTime			: Uint4B
++0x08c UserTime				: Uint4B
++0x090 VdmTrapcHandler		: Ptr32 Void
+\end{lstlisting}
+
+The structure of an EPROCESS on the other hand, is more involved than the structure of the Kernel Process, which you can see below:
+
+\begin{lstlisting}
+lkd> dt nt!_eprocess
++0x000 Pcb				: _KPROCESS
++0x080 ProcessLock		: _EX_PUSH_LOCK
++0x088 CreateTime		: _LARGE_INTEGER
++0x090 ExitTime			: _LARGE_INTEGER
++0x098 RundownProtect	: _EX_RUNDOWN_REF
++0x09c UniqueProcessId 	: Ptr32 Void
+...
++0x0dc ObjectTable		: Ptr32 _HANDLE_TABLE
++0x0e0 Token			: _EX_FAST_REF
+...
++0x108 Win32Process		: Ptr32 Void
++0x10c Job				: Ptr32 _EJOB
+...
++0x2a8 TimerResolutionLink : _LIST_ENTRY
++0x2b0 RequestedTimerResolution : Uint4B	
++0x2b4 ActiveThreadsHighWatermark : Uint4B
++0x2b8 SmallestTimerResolution : Uint4B
++0x2bc TimerResolutionStackRecord : Ptr32 _PO_DIAG_STACK_RECORD
+\end{lstlisting}
+
+As you can see the EPROCESS structure actually makes use of the KPROCESS structure in the first line. Other than this the process has data structure has most of the normal fields you would expect a process to have. 
+
+In Windows, a process is created when an application calls any one of the many functions to create a process. The main function that is called is CreateProcess. When a process is created the following steps are taken: 
+
+\begin{enumerate}
+\item Validate parameters, convert Windows subsystem flags to native counterparts. 
+\item Open executable to be executed within the process
+\item Create executive process object
+\item Create initial thread
+\item Perform post-creation
+\item Start execution of initial thread
+\item Complete initialization of address space and begin execution
+\end{enumerate}
+
+The CreateProcess function has a large number of arguments. Below is an example of C++ code that calls the function, showing each argument.
+
+\lstset{language=C++,
+                basicstyle=\ttfamily,
+                keywordstyle=\color{blue}\ttfamily,
+                stringstyle=\color{red}\ttfamily,
+                commentstyle=\color{green}\ttfamily,
+                morecomment=[l][\color{magenta}]{\#}
+}
+\begin{lstlisting}
+if( !CreateProcess( NULL,   // No module name (use command line)
+        argv[1],        // Command line
+        NULL,           // Process handle not inheritable
+        NULL,           // Thread handle not inheritable
+        FALSE,          // Set handle inheritance to FALSE
+        0,              // No creation flags
+        NULL,           // Use parent's environment block
+        NULL,           // Use parent's starting directory 
+        &si,            // Pointer to STARTUPINFO structure
+        &pi )           // Pointer to PROCESS_INFORMATION structure
+    ) 
+    {
+        printf( "CreateProcess failed (%d).\n", GetLastError() );
+        return;
+    }
+\end{lstlisting}
+
+The creation of a process relies heavily on threads, which leads us into our next topic.
+
+\subsection{Threads}
+Processes and threads are very related in Windows. Much like a process, a thread in Windows is represented by an executive thread object. Similarly, the executive thread object is composed of the encapsulated ETHREAD structure. \cite{windows} The ETHREAD structure's first element is the Thread Control Block which is of type KTHREAD. Below you can see the structure of ETHREAD, and KTHREAD. 
+
+\begin{lstlisting}
+lkd> dt nt!_ethread
+nt!_ETHREAD
++0x000 Tcb				: _KTHREAD
++0x1e0 CreateTime		: _LARGE_INTEGER
++0x1e8 ExitTime			: _LARGE_INTEGER
++0x1e8 KeyedWaitChain	: _LIST_ENTRY
++0x1f0 ExitStatus		: Int4B
+...
++0x270 AlpcMessageId	: Uint4B
++0x274 AlpcMessage		: Ptr32 Void
++0x274 AlpcReceiveAttributeSet : Uint4B
++0x278 AlpcWaitListEntry : _LIST_ENTRY
++0x280 CacheManagerCount : Uint4B
+
+lkd> dt nt!_kthread
+nt!_KTHREAD
++0x000 Header			: _DISPATCHER_HEADER
++0x010 CycleTime		: Uint8B
++0x018 HighCycleTime	: Uint4B
++0x020 QuantumTarget	: Uint8B
+...
++0x05e WaitIrql			: UChar
++0x05f WaitMode			: Char
++0x060 WaitStatus		: Int4B
+\end{lstlisting}
+
+As you can see the structure of both the ETHREAD and KTHREAD and very similar to EPROCESS and KPROCESS. Just like processes, we can use the CreateThread function to create a new thread. The difference in the CreateThread function is that it takes a function as a parameter.
+
+\lstset{language=C++,
+                basicstyle=\ttfamily,
+                keywordstyle=\color{blue}\ttfamily,
+                stringstyle=\color{red}\ttfamily,
+                commentstyle=\color{green}\ttfamily,
+                morecomment=[l][\color{magenta}]{\#}
+}
+\begin{lstlisting}
+// Create the thread to begin execution on its own.
+
+hThreadArray[i] = CreateThread( 
+        NULL,                   // default security attributes
+        0,                      // use default stack size  
+        MyThreadFunction,       // thread function name
+        pDataArray[i],          // argument to thread function 
+        0,                      // use default creation flags 
+        &dwThreadIdArray[i]);   // returns the thread identifier 
+
+
+// Check the return value for success.
+// If CreateThread fails, terminate execution. 
+// This will automatically clean up threads and memory. 
+
+if (hThreadArray[i] == NULL) 
+{
+       ErrorHandler(TEXT("CreateThread"));
+       ExitProcess(3);
+}
+\end{lstlisting}
+
+As you can see the CreateThread function does not take as many arguments because most are encapsulated within the thread function. 
+
+\subsection{CPU Scheduling}
+
+Windows uses a priority driven scheduling system. This means that at any given time, at least one of the highest priority threads is running. Scheduling in Windows also makes use of a concept called processor affinity. \cite{windows} This means that certain high priority threads which are ready to run may be limited by processors that they are allowed to run on. There is also the caveat that threads are only able to run on processors within their processor group, which is associated with the process. 
+
+Windows has 32 priority levels, from 0 to 31. They can be divided into a couple different categories. There are first 16 real-time values, which are values 16 to 31. There are then sixteen variable levels, which are values 0 to 15. Priority levels in Windows are assigned by both the Windows API and the Windows Kernel. The API first organizes processes by the priority class that is assigned at process creation. It then also assigns a relative priority of the threads within the process. Finally the kernel the priority class is converted to a base priority. \cite{windows}
+
+Each thread runs for an amount of time called a quantum after it is selected to run. The quantum is defined as the time that a thread is allowed to run before a thread of equal priority will take over. Since Windows has a preemptive scheduler, meaning tasks are often interrupted, a thread does not always finish its quantum. 
+
+The specific code of the Windows scheduler is hard to pinpoint. This is because it is implemented in many different parts of the Kernel, so code is spread throughout. 
+
+\section{FreeBSD}
+
+\subsection{Processes}
+Like most other operating systems, in FreeBSD a process, in its most basic terms, is a program in execution. More specifically, a process is composed of an address space that has mappings of the program's object code and globals. Additionally each process has some kernel resources which it can use for system calls. Each process in FreeBSD is assigned a PID. This is the main way that processes are referenced throughout the system. 
+
+In FreeBSD concurrent execution of processes is actually an illusion. \cite{freebsd} To create this illusion the kernel works hard to schedule system resources among the processes that are ready to execute. However, each process also has at least one thread that actually executes the code. Therefore, on a multiprocessor system, multiple threads can execute concurrently. Each process has a specified kernel state. This state is divided into two primary structures, the process structure and the thread structure. The process structure is composed of information that must always be in main memory. The process structure is composed of a few different fields. First we have the PID, and the parent PID. Then there is the signal state. Next there is tracing, which contains process tracing information. Finally, the structure contains timers, which are used for CPU-utilization. \cite{freebsd}
+
+Processes in FreeBSD are created using the fork family of system calls. Fork essentially creates a complete copy of the parent process. The forked process is referred to as the child process. Processes can terminate a number of ways. The first way is if the exit system call is used. Additionally processes can terminate voluntarily, after  all computation has been executed. Either way, a status code is returned to the parent process. 
+
+\subsection{Threads}
+Threads in FreeBSD run in one of two modes, user mode or kernel mode. While in user mode the thread is in a nonprivileged state and executes application code. Whenever a thread is in need of operating system specific features, such as a system call, it will switch into a privileged protection mode and run in kernel mode.
+
+The thread structure, referenced in the section above, differs from the process structure. The main difference is that the thread structure only keeps track of information that needs to be resident when the process is executing. The two structures are the same in the fact that they are both dynamically allocated when a process is created, and freed when the process is terminated. The structure of a thread is composed of a few different categories. First we have scheduling which contains the priority, user-mode, run state, and additional status flags. We then have the TSB, which is the user and kernel mode execution states. Next we have the kernel stack, which is the per-thread execution stack for the kernel. Finally there is the machine state. 
+
+The important thing to note about threads in FreeBSD and and UNIX based system for that matter is that it does not support native threads. Instead, threads are simply processes that can share resources with other processes. 
+
+\subsection{CPU Scheduling}
+FreeBSD implements fair scheduling of threads and processes. Using the default scheduler, which is currently ULE, each program is categorized based on the amount of computation it completes, and how much I/O it is requesting. Each process's priority is recalculated periodically based on these properties. FreeBSD also implements real-time scheduling. This is done by the kernel, using a seperate queue. Real-time scheduling ensures that all threads finish their computation in a specific order, and by a certain time. \cite{freebsd}
+
+An important note about FreeBSD's default scheduler is that if favors interactive programs. These type of programs may include text editors or web browsers. The reason it does this is because these programs usually have short bursts or computation. Another thing that the FreeBSD scheduler does is minimize thrashing. Thrashing is what happens when memory is in short supply and a large amount of time is spent by the system handling page faults. To get around this the system first detects thrashing by keeping track of how much free memory is available. To eliminate thrashing, when it is detected, the kernel marks the oldest run process as not able to run anymore.\cite{freebsd}
+
+\section{Linux Compared to Windows and FreeBSD}
+\subsection{Processes}
+Because FreeBSD and Linux are both UNIX based systems they do not differ much when it comes to processes. Both make use of the fork system call to create child processes from the parent process. The structure of processes is essentially the same as well. 
+
+Processes in Windows on the other hand, differ when compared to processes in Linux. First of all, in Windows, each process has at least one thread associated to it. This is not the case in Linux. Another big difference is that in Windows there is no inherent parent-child relationship, which there is in Linux. A final difference is that process creation is significantly cheaper in Linux. This has to do with the calls that are used. The fork call, used in Linux by definition splits the current process into two, giving you a second process that is identical to the calling process. This means that the address space of the new process was already up and running. Using CreateProcess, on Windows however causes the Kernel to load up the EXE image along with the associated dlls. In general Linux usually tries to take the most lightweight approach to things, which can be seen in this case. This is generally an advantage for Linux. That being said, the way Window's use of threads to help out with processes is unique and generally results in a stable system. 
+
+\subsection{Threads}
+
+Linux uses POSIX threads, or pthreads, whereas Windows has they're own thread API. Each have different advantages and disadvantages. The main thing to realize here is that to the Linux Kernel, there is really no concept of a thread. This may sound confusing at first. However, Linux simply implements all threads as standard processes. Therefore the Linux Kernel does not provide any special scheduling or data structures to use with threads. To the Kernel they are simply a normal process, which happens to share resources with other processes. \cite{linux} Windows on the other hand, takes a much different approach. As discussed above, Windows has native thread support. In the Windows world a thread is an abstraction to provide a more lightweight vessel for execution, compared to a process which tends to be fairly heavy. 
+
+Let us consider an example to make this example clearer. If we have a process that is composed of four threads in Windows, there will be one process that points to four threads, where the process describes the shared resources. However, in Linux, we would simply have four processes. \cite{linux} In this case the Linux implementation is slightly more simple. However, the Windows implementation is more explicit.
+
+As discussed in the FreeBSD section, threads in FreeBSD are based on the POSIX threads model. However, they differ in the sense that they use a hybrid model, meaning they can be managed by the kernel or by the user space. Other than this, threads in FreeBSD and Linux are essentially the same. 
+
+\subsection{CPU Scheduling}
+As mentioned before, FreeBSD makes use of the ULE scheduler. Linux on the other hand uses the CFS (Completely fair scheduler) as it's default scheduler. The ULE scheduler uses run queues and time slices. On the other hand, CFS does not use queues. Instead it uses a re-black tree which is indexed by CPU time spent. The design of the ULE scheduler is more traditional. As discussed in the FreeBSD section, the ULE scheduler favors interactive processes, where the same cannot be said for the CFS in Linux. Finally, ULE is around 3000 lines of code, CFS on the other hand is over 6000 lines of code. 
+
+CPU scheduling in Windows also differs compared to Linux. Windows uses a Multilevel feedback queue on the process side of things, a simple queue for threads. The highest priority threads is most likely to be running, and the process scheduler uses the feedback queue which is more complex. As discussed above, it is hard to actually look at the scheduling code in Windows, because it is scattered throughout. Linux on the other hand, with CFS, is more unified and configurable, since you can easily find the code. 
+
+\bibliographystyle{IEEEtran}
+\bibliography{writingAssn1}
+\end{document}

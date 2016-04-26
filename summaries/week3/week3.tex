@@ -1,0 +1,62 @@
+\documentclass[letterpaper,10pt]{article}
+
+\usepackage{graphicx}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{amsthm}
+
+\usepackage{alltt}
+\usepackage{float}
+\usepackage{color}
+\usepackage{url}
+
+\usepackage{balance}
+\usepackage[TABBOTCAP, tight]{subfigure}
+\usepackage{enumitem}
+\usepackage{pstricks, pst-node}
+
+\usepackage{geometry}
+\geometry{textheight=8.5in, textwidth=6in}
+
+%random comment
+
+\newcommand{\cred}[1]{{\color{red}#1}}
+\newcommand{\cblue}[1]{{\color{blue}#1}}
+
+\newcommand{\toc}{\tableofcontents}
+
+%\usepackage{hyperref}
+
+\def\name{McKenna Jones}
+
+\title{Week Three Summary}
+\author{McKenna Jones}
+\date{April 16th, 2016}
+
+
+%% The following metadata will show up in the PDF properties
+% \hypersetup{
+%   colorlinks = false,
+%   urlcolor = black,
+%   pdfauthor = {\name},
+%   pdfkeywords = {cs311 ``operating systems'' files filesystem I/O},
+%   pdftitle = {CS 311 Project 1: UNIX File I/O},
+%   pdfsubject = {CS 311 Project 1},
+%   pdfpagemode = UseNone
+% }
+
+\parindent = 0.0 in
+\parskip = 0.1 in
+
+\begin{document}
+
+\begin{titlepage}
+\maketitle
+\end{titlepage}
+
+\section{Chapter 14 Summary}
+Robert Love, the author of Linux Kernel Development (July 2, 2010), proves that the block I/O layer, the data structures used by the block I/O layer, I/O requests, and the I/O scheduler are all important abstractions of the Linux Kernel. To explain the role of these concepts in the kernel the author provides detailed discussions of buffers, the bio structure, request queues, and five different I/O schedulers, four of which are still used to this day. The purpose of this chapter is to provide the fundamentals of the block I/O layer to the reader in order to show how they are essential to the kernel. The intended audience is anyone who has a basic knowledge of the Linux Kernel and would like to know about the specifics of the block I/O layer, specifically, the life cycle of an I/O request in the kernel, based on the technical writing style of the author. 
+
+
+
+\end{document}
