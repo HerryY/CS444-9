@@ -32,7 +32,7 @@ static int sstf_dispatch(struct request_queue *q, int force)
 		prev = list_entry(nd->queue.prev, struct request, queuelist);
 		next = list_entry(nd->queue.next, struct request, queuelist);
                 rq = next;
-
+                
                 /* If next was equal to prev, there would only be one request */
                 if(next != prev){
                         printk("SSTF: There is more than one request to be dispatched\n");
@@ -60,7 +60,7 @@ static int sstf_dispatch(struct request_queue *q, int force)
                                         rq = prev;
                                 }
                                 /* If there is not a shorter request, switch directions */
-                                else if(cur_req > nd->pos){
+                                else{
                                         printk("SSTF: Shorter request in backward direction\n");
                                         nd->left_right = 1;
                                         rq = next;

@@ -1,0 +1,186 @@
+\documentclass[letterpaper,10pt,titlepage,draftclsnofoot,onecolumn]{IEEEtran}
+
+\usepackage{graphicx}                                        
+\usepackage{amssymb}                                         
+\usepackage{amsmath}                                         
+\usepackage{amsthm}                                          
+
+\usepackage{alltt}                                           
+\usepackage{float}
+\usepackage{color}
+\usepackage{url}
+\usepackage[noadjust]{cite}
+
+\usepackage{balance}
+\usepackage[TABBOTCAP, tight]{subfigure}
+\usepackage{enumitem}
+\usepackage{pstricks, pst-node}
+
+\nocite{*}
+
+\usepackage{listings}
+
+\usepackage{geometry}
+\geometry{textheight=8.5in, textwidth=6in}
+
+%random comment
+
+\newcommand{\cred}[1]{{\color{red}#1}}
+\newcommand{\cblue}[1]{{\color{blue}#1}}
+
+\usepackage{hyperref}
+\usepackage{geometry}
+\linespread{1}
+\def\name{McKenna Jones}
+
+\usepackage{titling}
+\title{Writing Assignment 2}
+\author{McKenna Jones}
+\date{May 1st, 2016}
+
+%pull in the necessary preamble matter for pygments output
+\input{pygments.tex}
+
+%% The following metadata will show up in the PDF properties
+\hypersetup{
+  colorlinks = true,
+  urlcolor = black,
+  pdfauthor = {\name},
+  pdfkeywords = {cs444 ``operating systems'' },
+  pdftitle = {CS 444 Writing Assignment 2},
+  pdfsubject = {CS 344 Project 2},
+  pdfpagemode = UseNone
+}
+
+\begin{document}
+\begin{titlepage}
+\maketitle
+\begin{center}
+CS444: Operating Systems Two \\
+Spring 2016
+\vspace{50 mm}
+\end{center}
+\begin{abstract}
+In this paper we compare two different operating systems, FreeBSD and Windows, to Linux. The topics that are covered are I/O and the provided functionality, such as data structures and algorithms. We will first explain the implementation in Windows and FreeBSD. They will then both be compared and contrasted to the Linux Kernel implementation.
+\end{abstract}
+\end{titlepage}
+\section{Introduction}
+Related to computers, I/O or input / output is how a computer communicates with different devices in the world. These different devices could keyboard, mouse, printers, network devices, etc. In order for these devices to communicate with the computer, a system within the computer needs to exist for these devices to efficiently transfer data from themselves and to the computer. This is what will be covered in the following paper. I/O is an essential topic related to computers. Without it, we would not be able to interact with computers the way we can today, or at all, for that matter.
+
+\section{I/O in Windows}
+Windows handles I/O in a somewhat unique way. There are a number of executive components that manage and provide interfaces for hardware devices. Its main design goal is to provide an abstraction of both software and hardware devices to applications within the operating system. At the heart of the I/O system is the I/O manager. 
+
+\subsection{I/O Management}
+At the heart of I/O in Windows is the I/O manager. The I/O manager serves to define the model by which I/O requests are delivered to device drivers in Windows. In Windows, the I/O system is dependent of packets. The most common type of pack is the I/O request packet, or IRP. The IRP is represented as a structure that contains info relevant to the I/O request. These packets travel between I/O system components. \cite{windows} The reason for this design choice is to allow applications threads to deal with many I/O requests concurrently.  
+
+When an IRP is necessary, the manager creates on in memory, which represents that specific I/O operation. It then passes a pointer to the IRP which contains the correct driver. After the I/O operation is complete, the manager deletes the IRP from memory. \cite{windows}
+
+There is not really a typical flow of I/O processing in Windows. In fact, I/O operations rarely use all components of the I/O system. Generally a request will originate from an application, be processed by the I/O manager, at least one driver, and then the HAL. Drivers play central role in the Windows I/O system, and there are many of them.
+
+At any given point in time, there is most likely an IRP that is uncompleted by the system. If you would ever like to view this you can use the irpfind command in Windows. The output will look similar to below. 
+
+\begin{lstlisting}
+Scanning large pool allocation table for Tag: Irp? (86c16000 : 86d16000)
+Searching NonPaged pool (80000000 : ffc00000) for Tag: Irp?
+  Irp    [ Thread ] irpStack: (Mj,Mn)   DevObj  [Driver]         MDL Process
+862d2380 [8666dc68] irpStack: ( c, 2)  84a6f020 [ \FileSystem\Ntfs]
+862d2bb0 [864e3d78] irpStack: ( e,20)  86171348 [ \Driver\AFD] 0x864dbd90
+862d4518 [865f7600] irpStack: ( d, 0)  86156328 [ \FileSystem\Npfs]
+
+\end{lstlisting} \cite{windows}
+
+You would see output like this, with more than one IRP, if too many devices are issuing requests at a time. There is also the issue that many devices will only complete when certain data is available. Therefore, it is possible that devices are blocking until certain data in the system is available. However this command could be useful if you need to pinpoint which devices are being held up. 
+
+\subsection{Drivers}
+In Windows there are two main types of drivers. First we have file system drivers. These drivers accept I/O requests from files and issue requests to either network drivers or mass storage drivers. Secondly we have device drivers, which are used for keyboards, mice, monitors, etc. Typically these drivers support Plug and Play, or PnP, functionality. \cite{windows}
+
+A driver in Windows is composed of a number of common routines. First there is an initialization routine. This routine performs all global driver initialization and fills in the necessary data structures. Next there is an add device routine. This routine is specific to a driver which supports PnP. It will create a new device object to represent the new device. There is then a set of dispatch routines. These are generally basic routines like open, close, read and write. Whenever a driver is needed, it is called through a dispatch routine. Next, a start I/O routine is used to initiate data transfer from or to a device. Finally, drivers all have interrupt service routines, or ISR's. \cite{windows} These are used whenever a device interrupts, which is fairly often.
+
+\subsection{I/O Scheduling}
+In Windows there are a number of types of I/O. First there is synchronous and asynchronous I/O. Synchronous I/O operations are the most common for applications. This means that the application thread waits until the device has performed its operation. Both the Windows ReadFile and WriteFile functions are examples of this. These functions return control to the caller, only after they have completed their operations. \cite{windows}
+
+Asynchronous I/O on the other hand, is when an application may issue multiple requests and continue on with its execution. When using this model, it is essential that the thread does not access any data from the I/O request while it is being serviced. 
+
+Windows also supports Mapped File I/O. The concept allows the operating system to view a file on disk as part of a process's virtual memory. This means that program can view a file without buffering or performing any disk I/O. \cite{windows}
+
+The final types of I/O that windows supports are Fast I/O and Scatter/Gather I/O. Fast I/O allows the system to bypass the creation of an IRP, as discussed above. Instead it goes directly to the driver stack when completing a request. Scatter/Gather I/O allows an application to read or write from more than one buffer in virtual memory using one call instead of issuing multiple requests. \cite{windows} The only caveat is that the locations in memory must be continuous. 
+
+\section{Free BSD}
+In  FreeBSD, I/O is controlled almost entirely by descriptors. Any system call that refers to open files will take a descriptor as an argument. There are a number of different kinds of descriptors, based on which file you are referencing. For example, a data file will use a vnode structure, while network data will most likely use a socket. Current processes have a descriptor table that will hold all current descriptors. \cite{freebsd}
+
+Descriptors focus most of their attention to the set of file entries. A file entry is an object oriented data structure, containing a type and array of function pointers. Many of these functions are specific to each type. The general functions are read from descriptor, write to descriptor, truncate descriptor, poll descriptor, and change owner or mode of descriptor. \cite{freebsd}
+
+\subsection{File Descriptor Management}
+In Free BSD, the fcntl system call is the primary means of manipulating the file descriptor structure. It gives you the ability to change a descriptor in a number of ways. First of all you can duplicate a descriptor. This is almost the same as using the dup system call. It also gives the ability to set a number of flags. Some important ones are the close-on-exec flag, no-delay flag, and the synchronous/asynchronous flags. \cite{freebsd} Unlike Windows, the ability to do asynchronous I/O is fairly new. 
+
+\subsection{Provided Functionality}
+FreeBSD provides a number of data structures and algorithms to assist with I/O, and in general. The smallest form of inter process communication, or IPC, is the semaphore. Semaphores are often covered in computer science classes. However, in FreeBSD they are slightly different than normally described. FreeBSD semaphores are grouped into arrays. This is to prevent against deadlock by allowing the kernel to protect them more easily. \cite{freebsd} 
+
+In order to send and receive typed messages, message queues are used. In FreeBSD, queues are all half duplex. This means that one process is the sender, and one is the receiver. The data structures that controls all message queues are projected by a single lock. \cite{freebsd} A process cannot receive or write to the message queue unless it currently holds the lock.
+
+\subsection{Devices}
+FreeBSD has added a number of specific I/O features over the years. As the textbook outlines, they can easily be broken down into a couple categories.
+
+First is disk management. A file system is essential to any modern day operating system. However, disks can be used an almost infinite number of ways to create one. This is where disk management comes in. Disk management can be used to create partitions, virtual partitions, or Redundant Array of Inexpensive Disks. In FreeBSD, this functionality has been moved out into the geometry or GEOM layer. This abstractions saves all of the functionality from needed to be build directly into the filesystem. \cite{freebsd}
+
+FreeBSD has support for three main kinds of I/O. They are character devices interfaces, the filesystem, and socket interfaces. Character device interfaces are used for both things like terminal multiplexers and block-oriented devices like disks. All network devices use the socket interface to transmit data. All I/O devices are accessed through entry points, provided by the device driver.
+
+\subsection{Drivers}
+Drivers in FreeBSD have three main routines. First there are the initialization routines. As the name suggests, these routines initialize the device for the associated software. This part of the drive is usually only called once. 
+
+The rest of the driver can be broken down into the top and the bottom half. The top half of the driver is the part that actually services I/O requests. It is invoked primarily from system calls. The bottom half of the driver consists of the interrupt service routines. ISR's in FreeBSD each have their own thread context. \cite{freebsd} This means that they can block if they need to. 
+
+\subsection{I/O Scheduling}
+In FreeBSD, each driver manages one or more queues of I/O requests. Whenever an I/O request is received, it is recorded into a data structure and placed into a queue. Then when the operation completes, the controller sends an interrupt to the driver. The ISR, discussed above, then removes the request from  the queue and starts the next queue. \cite{freebsd}
+
+These I/O queues are common among all asynchronous routines. Therefore, it is essential that both the top and bottom halves of the device drivers work together. This means that both the top and the bottom need to obtain the mutex associated with the request queue, before servicing the request. \cite{freebsd}
+
+FreeBSD uses the standard elevator scheduler know as C-LOOK. This scheduler maximizes throughput but is not always fair. The main issue with C-LOOK is that starvation is very possible. \cite{freebsd}
+
+For this algorithm to work effectively a disksort() routine is used. The algorithm sorts requests in a cyclic, ascending, block order. This means that requests are only serviced one way. Below is the basic algorithm.
+
+\begin{lstlisting}
+void disksort(
+	drive queue *dq,
+	buffer *bp);
+{
+	if( active list empty ) {
+		place the buffer at the front of the active list;
+		return;
+	}
+	if( request lies before the first active request ) {
+		locate the beginning of the next-pass list;
+		sort bp into the next-pass list;
+	} else
+		sort bp into the active list;
+}
+\end{lstlisting} \cite{freebsd}
+
+This algorithm has a noticeable effect on the file system's speed when there are multiple users on the drive at one time. The use of this algorithm is most important on fast machines that fail to sort within the device driver. 
+
+\section{Linux Compared to FreeBSD and Windows}
+Similarly to both Windows and FreeBSD, I/O is an essential part of the Linux Kernel. In the following sections we will examine how the Linux implementation is different, and how it is similar to both Windows and FreeBSD. 
+
+\subsection{I/O Management}
+While Windows has a dedicated I/O manager, and FreeBSD has an extensive system to manage its file descriptors, Linux does not. The closest thing that the Linux Kernel has is its Virtual File System, or VFS. The VFS is the reason that open(), read(), and write() system calls can occur, no matter what file system is being used. Another difference with Linux is that the VFS and block I/O layer are closely connected. Then work together to ensure that user-space programs can run generic system calls, in order to read, write or modify files. \cite{linux} 
+
+\subsection{Devices}
+As with Windows and FreeBSD, devices are classified into three broad groups, block devices, character devices, and network devices. Character devices, are accsessed through a character device node, and network devices are accessed through sockets. This is similar to both Windows and FreeBSD. Block devices are also accessed through a block device node. However, Block I/O in Linux is fairly involved compared to Windows or FreeBSD. 
+
+FreeBSD and Linux are similar when it comes to devices, in the sense that they are modular. This means that all related subroutines, data, and entry points are grouped together into a module. \cite{linux} This gives you the power to load separate objects only if you really need them. The same cannot be said about Windows. 
+
+\subsection{Drivers}
+Drivers in Linux do not differ drastically from Windows or FreeBSD. The main difference is that in Linux, as in FreeBSD, drivers are broken down into the top half, and the bottom half, which cannot be said about Windows. Other than that, in Linux a driver is similarly comprised of a initialization routine, interrupt service routine, and a clean up routine. Interrupts service routines in Linux and FreeBSD can easily be declared in C. This is not always the case in Windows. The implementation is a bit more involved.
+
+\subsection{Provided Functionality}
+Linux provides four main generic data structures to use. They are Linked Lists, queues, maps, and binary trees. Windows uses linked lists, and message queues for driver and general I/O implementation. It also provides some mapping I/O functionality. However, it does not use binary trees in the same way that Unix systems like FreeBSD and Linux do. Unix operating systems seem to rely on binary trees for most of their sorting algorithms. 
+
+\subsection{I/O Scheduling}
+Like FreeBSD and Windows, a request queue system is used to service requests. While each request in Windows is represented by a IRP, each request in FreeBSD and Linux is represented by the struct of type request. As discussed above FreeBSD uses the C-LOOK elevator scheduler, which is not always fair. Linux on the other hand has a number of schedulers to choose from. The most commonly used one is CFQ, or the completely fair scheduler. It assigns I/O requests based on the process originating the I/O request. \cite{linux} Finally, Windows uses different schedulers for different devices, but generally uses a synchronous scheduling system. 
+
+
+\section{Conclusion}
+As you can see, I/O and the provided functionality of Linux, FreeBSD, and Windows all tend to vary. Generally Linux and FreeBSD share many properties, as they are both Unix systems. Windows, seems to differ on the small details, but overall has similar design choices. After diving deep into this topic it is apparent that there might not be one right way to do I/O, but it is without a doubt a necessary feature to consider when designing an operating system. 
+\bibliographystyle{IEEEtran}
+\bibliography{writingAssn2}
+\end{document}
