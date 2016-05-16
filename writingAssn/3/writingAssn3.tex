@@ -1,0 +1,165 @@
+\documentclass[letterpaper,10pt,titlepage,draftclsnofoot,onecolumn]{IEEEtran}
+
+\usepackage{graphicx}                                        
+\usepackage{amssymb}                                         
+\usepackage{amsmath}                                         
+\usepackage{amsthm}                                          
+
+\usepackage{alltt}                                           
+\usepackage{float}
+\usepackage{color}
+\usepackage{url}
+\usepackage[noadjust]{cite}
+
+\usepackage{balance}
+\usepackage[TABBOTCAP, tight]{subfigure}
+\usepackage{enumitem}
+\usepackage{pstricks, pst-node}
+
+\nocite{*}
+
+\usepackage{listings}
+
+\usepackage{geometry}
+\geometry{textheight=8.5in, textwidth=6in}
+
+%random comment
+
+\newcommand{\cred}[1]{{\color{red}#1}}
+\newcommand{\cblue}[1]{{\color{blue}#1}}
+
+\usepackage{hyperref}
+\usepackage{geometry}
+\linespread{1}
+\def\name{McKenna Jones}
+
+\usepackage{titling}
+\title{Writing Assignment 3}
+\author{McKenna Jones}
+\date{May 15th, 2016}
+
+%pull in the necessary preamble matter for pygments output
+\input{pygments.tex}
+
+%% The following metadata will show up in the PDF properties
+\hypersetup{
+  colorlinks = true,
+  urlcolor = black,
+  pdfauthor = {\name},
+  pdfkeywords = {cs444 ``operating systems'' },
+  pdftitle = {CS 444 Writing Assignment 3},
+  pdfsubject = {CS 344 Writing assignment 3},
+  pdfpagemode = UseNone
+}
+
+\begin{document}
+\begin{titlepage}
+\maketitle
+\begin{center}
+CS444: Operating Systems Two \\
+Spring 2016
+\vspace{50 mm}
+\end{center}
+\begin{abstract}
+In this paper we compare two different operating systems, FreeBSD and Windows, to Linux. The topic covered in the paper is interrupts. Both hardware and software interrupts will be discussed. We will first explain the implementation in Windows and FreeBSD. They will then both be compared and contrasted to the Linux Kernel implementation.
+\end{abstract}
+\end{titlepage}
+\section{Introduction}
+In its more basic terms, an interrupt is a signal sent to the processor on a system. This signal can mean a variety of things. Generally it means that a piece of software or hardware needs immediate attention. As the name suggests, the signal causes the processor to interrupt whatever it is working on, and service the interrupt.
+
+There are two main types of interrupts, hardware and software. Hardware interrupts are used by devices like keyboards or any external peripherals. For example, whenever a keyboard key is pressed, an interrupt signal is sent. A software interrupt on the other hand is triggered differently. These are triggered by an exception in a program, or a special instruction in the instruction set architecture. What these two types have in common is that an interrupt handler is used to service the interrupt signal. 
+ 
+\section{Interrupts in Windows}
+Similar to  most operating systems, interrupts in Windows are handled in the Kernel mode. As the Windows Kernel is closed source, it is a bit harder to understand all of the intricacies of interrupt handling without looking at the code. However, we will cover the basics of how they are dealt with.  
+
+\subsection{Hardware Interrupts}
+External hardware interrupts enter the Windows Kernel through an interrupt controller. The interrupt controller can services many lines of interrupts. What the controller then does is interrupt the processor on one single line. After the processor has been interrupted properly, the controller provides the processor with an interrupt request, or IRQ. This IRQ is then translated into an interrupt number and it is added to the interrupt dispatch table, or IDT. \cite{windows} The IDT simply shows which handlers have been assigned to each interrupt value. You can see this in Windows with the simple !idt command. Below is an example.
+\begin{figure}[H]
+\caption{Sample IDT}
+\begin{lstlisting}
+lkd> !idt
+
+Dumping IDT:
+
+00: fffff80001a7ec40  nt!KiDivideErrorFault
+01: fffff80001a7ed40  nt!KiDebugTrapOrFault
+02: fffff80001a7ef00  nt!KiNmiInterrupt
+03: fffff80001a7f280  nt!KiInvalidOpcodeFault
+\end{lstlisting} \cite{windows}
+\end{figure}
+
+This gives a visual representation of what was described above. Each IRQ can only have one handler associated with it. And it must have at least one.
+
+Along with the controller, the interrupt dispatch table is an essential part of the interrupt system in Windows. When booted up, Windows fills the IDT with all the appropriate pointers to kernel subroutines that can handle each type of interrupt. Then, whenever a new interrupt signal is received, the interrupt number which is was assigned, is a reference to the proper subroutine in the IDT. Generally, Windows supports up to 256 entries in the IDT. \cite{windows}
+
+
+There are a couple different types of controllers to service interrupts in Windows, depending on the processor. For the most part, x86 systems use the i8269A Programmable Interrupt Controller, or PIC. Newer systems have Advanced Programmable Interrupt Controllers, or APIC. The PIC has 8 unique interrupt lines. The interesting thing about this and other modern controllers is the addition of the 'slave'. The slave's interrupts are multiplex into one of the masters interrupt lines. The result is 15 possible interrupt lines. Given that x64 and x86 are compatible with each other, x64 systems provide the same interrupt controllers. The only caveat is that the x64 version of Windows will not run on systems that lack an APIC, because it specifically needs an APIC. \cite{windows}
+
+\subsection{Software Interrupts}
+Windows has its own built in system to handle interrupt priorities. The system is called interrupt request levels or IRQL. There are 32 levels, 0 - 31, on x86, and 16, 0 - 15, on x64. Here higher numbers correspond to a higher priority. The interrupts are serviced based on priority. By default, hardware interrupts have a higher priority compared to software interrupts. On a x86 system, levels 3-31 are reserved for hardware interrupts, and levels 1 and 2 are for software interrupts. \cite{windows}
+
+There are a few types of common software interrupts. The first general type is a Dispatch or Deferred Procedure Interrupt, or DPC. This specific type of interrupt occurs whenever a thread is mid execution and it detects that rescheduling is needed. Therefore the kernel requests dispatching but defers it until its execution is completed. When this happens the processor's IRQL is raised to the DPC level. \cite{windows} This will block any other software interrupts. Unlike how we think of hardware interrupts, these interrupts are deferred, meaning that they may not execute right away. 
+
+Secondly we have asynchronous procedure call interrupts, or APCs. These provide programs and system code to execute in the context of different user threads. These are run at IRQL level less than the DPC level. This means that they do not operate under similar restrictions. Instead, they are queued to execute in the context of the thread. There are both kernel mode and user mode APCs. Kernel mode APCs can interrupt a thread and execute without the threads knowing or giving permission. User mode APCs on the other hand cannot, and require special permissions. \cite{windows}
+
+\section{FreeBSD}
+Much like Windows, and other modern operating systems, FreeBSD handles primarily two kinds of interrupts, software and hardware. Interrupts are primarily handled in kernel mode under FreeBSD. 
+
+\subsection{Hardware Interrupts}
+All interrupts from external hardware and I/O are handeled by interrupt routines. These routines are loaded directly to the kernel address space. Hardware interrupts under FreeBSD are asynchronous. This means that the entire machine state is saved before an interrupt is handled. 
+
+A new thread with a context is created for each interrupt handler, but only when it is needed. Therefore, interrupt handlers have no access to the context of previous running handlers. This also gives the interrupt handlers the ability to block, and wait for specific system resources, which was not previous possible in older versions of FreeBSD. \cite{freebsd} Under FreeBSD these threads are referred to as heavyweight threads. They are called this because anytime one is used a full context switch is needed, which is not cheap for the machine.  
+
+\subsection{Software Interrupts}
+As with Windows, and most operating systems, most of the work with interrupts is done with hardware. The lower priority interrupts however, deal with software. Similarly to how hardware interrupts work, each software interrupt has a context assigned to it, which corresponds to the process it is associated with. 
+
+Software interrupts run only after all interrupts which are a higher priority have been run. Generally this means after all of the hardware interrupts have run. After all software interrupts have run, then any user processes will continue to run. Some examples of uses for software interrupts in FreeBSD are any time related events, and process rescheduling. \cite{freebsd}
+
+\section{Windows and FreeBSD Compared to Linux}
+When examining interrupts in Linux compared to Windows and FreeBSD, the amount of similarities greatly overpowers the amount of differences. The truth is that most modern operating systems handle interrupts in similar fashions, which can be seen from my two above sections.
+
+In Linux, like Windows, and FreeBSD, interrupts are assigned values. These values are interrupt request lines, or IRQ lines. Then like in Windows, interrupt controllers act to handle these different IRQs in the appropriate order.
+
+Where Linux and FreeBSD differ from windows, is the ability to easily create interrupt handlers. An interrupt handler or interrupt service routine, is what is executed in response to an interrupt. They exist in all operating systems. Because Linux and FreeBSD are both open source operating systems, it is easy to examine current ISRs and create new ones. In fact, they are just normal C functions. \cite{linux}
+
+In Linux, each device must have at least one ISR registered to it. You do this with the $request_irq()$ function. Here is the function prototype for $request_irq()$.
+
+\begin{figure}[H]
+\caption{Registering an interrupt handler}
+\begin{lstlisting}
+/* request_irq: allocate a given interrupt line */
+int request_irq(unsigned int irq,
+				irq_handler_t handler,
+				unsigned long flags,
+				const char *name,
+				void *dev)
+\end{lstlisting} \cite{linux}
+\end{figure}
+
+The two important parameters here are the first and the second. The first parameter is the interrupt number that is assigned by the IRQ. The second parameter is a function pointer to the actual ISR. An ISR can really do whatever you would like it. For a personal project I developed a handler that simply detaches some threads when the program receives the SIGINT signal. 
+
+\begin{figure}[H]
+\caption{A simple ISR}
+\begin{lstlisting}
+void interruptHandler(int signal)
+{
+	if(signal == SIGINT)
+	{
+                // Detatch both threads
+		pthread_detach(produce);
+                pthread_detach(consume);
+		exit(EXIT_SUCCESS);
+	}
+}
+\end{lstlisting}
+\end{figure}
+
+As you can see, in Linux it is not hard to declare simple interrupt handlers, as they are simply C functions. The same cannot be said for Windows. 
+
+Other than this, the similarities are large in Linux compared to both Windows and FreeBSD. Linux also deals with all hardware interrupts first, and then services software interrupts before getting back to user process execution.  
+\section{Conclusion}
+As the preceding sections suggest, interrupts in modern operating systems are largely addressed the same way. It is also apparent that they provide a crucial role in how we are able to interact with a computer. Without interrupts the way we use keyboards, mice, and other external devices would not be possible. Based on this, it makes sense how similar each operating system is when it comes to the topic. 
+
+\bibliographystyle{IEEEtran}
+\bibliography{writingAssn3}
+\end{document}
