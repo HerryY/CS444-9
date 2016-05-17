@@ -1,0 +1,134 @@
+\documentclass[letterpaper,10pt,titlepage,draftclsnofoot,onecolumn]{IEEEtran}
+
+\usepackage{graphicx}                                        
+\usepackage{amssymb}                                         
+\usepackage{amsmath}                                         
+\usepackage{amsthm}                                          
+
+\usepackage{alltt}                                           
+\usepackage{float}
+\usepackage{color}
+\usepackage{url}
+\usepackage[noadjust]{cite}
+
+\usepackage{balance}
+\usepackage[TABBOTCAP, tight]{subfigure}
+\usepackage{enumitem}
+\usepackage{pstricks, pst-node}
+
+\nocite{*}
+
+\usepackage{listings}
+
+\usepackage{geometry}
+\geometry{textheight=8.5in, textwidth=6in}
+
+%random comment
+
+\newcommand{\cred}[1]{{\color{red}#1}}
+\newcommand{\cblue}[1]{{\color{blue}#1}}
+
+\usepackage{hyperref}
+\usepackage{geometry}
+\linespread{1}
+\def\name{McKenna Jones}
+
+\usepackage{titling}
+\title{Project 3: Encrypted Block Device}
+\author{McKenna Jones}
+\date{May 16th, 2016}
+
+%pull in the necessary preamble matter for pygments output
+
+%% The following metadata will show up in the PDF properties
+\hypersetup{
+  colorlinks = true,
+  urlcolor = black,
+  pdfauthor = {\name},
+  pdfkeywords = {cs444 ``operating systems'' },
+  pdftitle = {CS 444 Project 3: Encrypted Block Device},
+  pdfsubject = {CS 311 Project 3},
+  pdfpagemode = UseNone
+}
+
+\begin{document}
+\begin{titlepage}
+
+\maketitle
+\begin{center}
+CS444: Operating Systems Two \\
+Spring 2016
+\vspace{50 mm}
+\end{center}
+\begin{abstract}
+This is the third project for CS444, Operating Systems Two. In this project we implement a device driver. Specifically, we will implement, a RAM disk device driver which allocates a chunk of memory and presents itself as a block device. The device driver will also have the additional functionality of encryption, using Linux's crypto API.
+\end{abstract}
+\end{titlepage}
+\section{Design Considerations}
+To begin this assignment I started by researching general device drivers and block devices. I had a general understanding of them, but it was not clear to me exactly what they do. I then looked at the suggest link on the assignment page and found the SBD, or simple block device C code. Because this was written for a much older kernel, I decided to find a more up to date version. Eventually I found a version written by Pat Patterson. \cite{pat} I based by code off of his. He also fixed a couple warnings that were present in the Linux Device Drivers book version.
+
+Before thinking about encryption I figured it was a good idea to first figure out how to properly install a module into the kenrnel. So using Pattersons's file I figured out how to properly change my makefile and Kconfig so the .ko file was created. After then I figured out how to scp the .ko file into my VM and install the module. 
+
+Now I was ready to to implement the encryption portion of the driver. First I researched the Linux Crypto API a bit because it was not really covered in class. From hear the approach was fairly straight forward. If we are performing a write then I encrypt each byte, one at a time, using $crypto_cipher_encrypt_one$, otherwise I decrypt each byte one at a time, using $crypto_cipher_decrypt_one$. For the purposes of this assignment I decided to use AES encryption, simply because I have a little experience with it. 
+
+For testing purposes I have printk statements to show whenever something is being encrypted or decrypted. I also have set it up so I can change the encryption key in $/sys/module/sbd/parameters/$. If I change the key, then garbage values will be printed.
+
+\section{Questions}
+\subsection{What do you think the main point of this assignment is?}
+
+The point of this assignment is first of all to become familiar with device drivers, modules and encryption. More specifically it forced us to learn how to properly install a module into the Linux kernel. I believe that this was the most valuable part of the assignment. Modules can be used for a wide variety of things. 
+
+\subsection{How did you approach the problem?}
+I discussed this in detail above. I started by first learning how to install a device driver and module. Then I moved onto figuring out how to implement the encryption aspect of the assignment.
+
+\subsection{How did you ensure your solution was correct?}
+As discussed above, I used printk statements to ensure that my driver was actually encrypting and decrypting things. I then changed the module parameter $encryption_key$ to verify that only the correct key allowed access to the mounted device. 
+
+\subsection{What did you learn?}
+In this assignment I learned how to create a driver. How to install a module, and how to deal with encryption using the Linux crypto API. I also became familiar with how to create partitions and make filesystems on Linux. 
+
+\section{Version Control Log}
+\begin{center}
+ \begin{tabular}{||c c c c c||} 
+ \hline
+ Date & Commit & Insertions & Deletions & Message \\ [0.5ex] 
+ \hline\hline
+ 4/10/16 & 58c70d2977f72b01de00e2d54d73041edf095c34 & 1549 & 2698 & Fresh Kernel for HW3\\ 
+ \hline
+ 4/12/16 & 9a09ad7d91c3abf2c5f30e0517146395542ccef7 & 2869 & 1550 & .ko files created properly\\
+ \hline
+ 4/14/16 & 7730733a240f0c39e182b4bc4589b7520e73742d & 158 & 0 & Able to install module\\
+ \hline
+ 4/16/16 & 3977315c986953797d2fbc4b348cb3ca42b5d3e7 & 148 & 99 & Able to create and mount module\\
+ \hline
+ 4/16/16 & e4787786352a2e2365661a6d2ebedddf8464d7d2 & 0 & 2 & Done testing\\ 
+ [1ex] 
+ \hline
+\end{tabular}
+\end{center}
+%input the pygmentized output of mt19937ar.c, using a (hopefully) unique name
+%this file only exists at compile time. Feel free to change that.
+
+\section{Work Log}
+\begin{center}
+ \begin{tabular}{||c c c ||} 
+ \hline
+ Date & Hours & Work Done\\ [0.5ex] 
+ \hline\hline
+ 4/10/16 & 2 & Initial research on the topic\\ 
+ \hline
+ 4/12/16 & 2 & Figuring out how to compile\\
+ \hline
+ 4/14/16 & 1.5 & More progress installing module\\
+ \hline
+ 4/16/16 & 2.5 & Module now working properly\\
+ \hline
+ 4/26/16 & 2 & Writeup and testing \\ 
+ [1ex] 
+ \hline
+\end{tabular}
+\end{center}
+
+\bibliographystyle{IEEEtran}
+\bibliography{hw3}
+\end{document}
