@@ -1,0 +1,177 @@
+\documentclass[letterpaper,10pt,titlepage,draftclsnofoot,onecolumn]{IEEEtran}
+
+\usepackage{graphicx}                                        
+\usepackage{amssymb}                                         
+\usepackage{amsmath}                                         
+\usepackage{amsthm}                                          
+
+\usepackage{alltt}                                           
+\usepackage{float}
+\usepackage{color}
+\usepackage{url}
+\usepackage[noadjust]{cite}
+
+\usepackage{balance}
+\usepackage[TABBOTCAP, tight]{subfigure}
+\usepackage{enumitem}
+\usepackage{pstricks, pst-node}
+
+\nocite{*}
+
+\usepackage{listings}
+
+\usepackage{geometry}
+\geometry{textheight=8.5in, textwidth=6in}
+
+%random comment
+
+\newcommand{\cred}[1]{{\color{red}#1}}
+\newcommand{\cblue}[1]{{\color{blue}#1}}
+
+\usepackage{hyperref}
+\usepackage{geometry}
+\linespread{1}
+\def\name{McKenna Jones}
+
+\usepackage{titling}
+\title{Writing Assignment 4}
+\author{McKenna Jones}
+\date{May 25th, 2016}
+
+%pull in the necessary preamble matter for pygments output
+\input{pygments.tex}
+
+%% The following metadata will show up in the PDF properties
+\hypersetup{
+  colorlinks = true,
+  urlcolor = black,
+  pdfauthor = {\name},
+  pdfkeywords = {cs444 ``operating systems'' },
+  pdftitle = {CS 444 Writing Assignment 3},
+  pdfsubject = {CS 344 Writing assignment 3},
+  pdfpagemode = UseNone
+}
+
+\begin{document}
+\begin{titlepage}
+\maketitle
+\begin{center}
+CS444: Operating Systems Two \\
+Spring 2016
+\vspace{50 mm}
+\end{center}
+\begin{abstract}
+In this paper we compare two different operating systems, FreeBSD and Windows, to Linux. Specifically, we will look how each operating system deals with memory management. This includes how the operating system deals with virtual memory, memory allocation, pages, and other topics related to memory. Memory management is an essential topic for any modern operating system. 
+
+\end{abstract}
+\end{titlepage}
+\section{Introduction}
+Memory management is not a topic that most computer users give much thought to. Regardless, it is absolutely essential for a computer to function properly and efficiently. In its most basic terms, memory management is the task of the computer to dynamically allocate different portions of memory to different programs. It also takes care of freeing memory. Without this, computers would not be able to multitask like we use them to do today. 
+ 
+\section{Memory Management in Windows}
+In Windows, the heart of the memory management system is the Memory Manager. It handles the interaction between virtual and physical memory. Specifically it has two primary tasks. First it is responsible for mapping a process's virtual address space to physical memory. This is important so that whenever a process reads or writes from memory, it is referencing the correct location. Secondly, the memory manager must page some contents of memory to the disk. This occurs whenever a running task tries to use more physical memory than is available. \cite{windows} To make managing virtual memory easier, the virtual memory is divided into regions called pages.
+
+\subsection{Paging}
+The need for pages is because the hardware management unit translates virtual memory to physical memory at the smallest size of a page. The  page is the smallest  unit of protection at the hardware level. In Windows, under the memory manager, there are two types of pages, small and large. 
+
+Large pages are able to translate addresses of references within the pages much faster than smaller pages. This is only because the first reference to any byte in a large page causes the hardware's translation look aside buffer to have the necessary information in its cache to translate references of any other byte. This is not the case for small pages. The core of the operating system is mapped to large pages because of this advantage.
+
+Most pages are stored in a processes virtual address space. Therefore they are either considered free, reserved, committed, or shareable. Committed pages are private pages. They can no longer be shared with other processes. Shareable pages of course can be shared. However, it is common that they only reference one process. Pages are reserved before than can be committed. \cite{windows}
+
+\subsection{Shared Memory}
+In Windows, shared memory  is controlled by the memory manager. Specifically something called section objects are used to implement the functionality. Section objects are used to map virtual address for an application that wants to access it as if it were actually in main memory. \cite{windows} These objects can be opened by many processes at once. 
+
+Generally section objects are connected either to an open file or to a section of committed memory. Sections that are connected to memory are sections that create shared memory as we normally think of it. 
+
+\subsection{Memory Allocation}
+Every region of process address space is aligned to begin on a integral boundary in Windows. This boundary is defined by a value called allocation granularity. \cite{windows} The value is generally 64KB. This value is used by the memory manager to allocate memory efficiently. 
+
+In windows whenever a region of memory is allocated, it is made sure that the size of that region is a multiple of the system page size. For example, x86 systems uses 4KB page.
+
+Where Windows differs from other operating systems is its extensive use of the heap. In Windows, each process has at least one heap. This default heap is created whenever a process is started, and will never be deleted. The default heap is used either directly by processes or by internal Windows functions. Windows has no $malloc()$ system call as UNIX systems do. Instead, the equivalent is $HeapAlloc()$. \cite{windows}
+
+\section{Memory Management in FreeBSD}
+As with Windows, or any other modern operating system, memory management is essential to the functionality of FreeBSD. In FreeBSD memory is managed in a hierarchical fashion. \cite{freebsd} First there is the primary, main memory system, which is usually random access memory. There is then secondary storage, which is primarily disk drives. 
+
+In FreeBSD, all processes operate in the virtual address space. All references to the virtual address spaces are translated by hardware to references in physical memory. This process is also known as address translation. \cite{freebsd}
+
+\subsection{Paging}
+In FreeBSD, each page of virtual memory is either resident or nonresident in main memory. Whenever a process references a location in memory that in not resident a page fault will be triggered. This gives processes the ability to execute when they are partially resident. \cite{freebsd} 
+
+What sets FreeBSD's paging system apart is its use of superpages. These superpages ensure that pages are placed in such a fashion in memory that continguous pages make the best use of the processor memory and address translation cache. 
+
+FreeBSD uses a prepaging fetch policy. What this means is that the replacement policy is invoked before main memory is full, and all pages other than one that is causing a fault is fetched. \cite{freebsd} The replacement policy, which determines when pages are removed from memory, varies from system to system. A popular policy is the optimal replacement policy. This policy removes pages that have the longest expected time until its next reference. 
+
+\subsection{Shared Memory}
+In traditional operating systems, the concept of shared memory did not really exist. Instead, all interprocess communication was performed through pipes, sockets, or files. However, the concept of shared memory reduces the amount of interprocess communication that is required. 
+
+After a process has maped memory to their address space, that memory and any changes made to it is visible to all other processes. This means that interprocess communication is possible without any system calls. The obvious issue with this approach that FreeBSD uses is that if part of memory becomes corrupted, then it will be corrupted for all processes who have access to it and are using it. \cite{freebsd} 
+
+To get around this issue the kernel has some tools to reduce this possibility of this happening. Namely, semaphores and POSIX Pthreads. Semaphores require system calls, which defeat the purpose of shared memory to a certain extent. However, using Pthreads, the semaphore can be located in shared memory, reducing the overhead.
+
+\subsection{Memory Allocation}
+In FreeBSD, like other UNIX based systems, two C library routines are used to allocate and free memory, $malloc()$ and $free()$ respectively. The $malloc()$ call is the preferred way to allocate memory in FreeBSD. In FreeBSD the $malloc()$ call takes the size of memory to be allocated. You can see this in its function prototype below.
+
+\begin{figure}[H]
+\caption{Malloc function prototype}
+\begin{lstlisting}
+void *malloc(size_t size);
+\end{lstlisting} \cite{freebsd}
+\end{figure}
+
+Using the $malloc()$ and $free()$ calls is not very complicated in FreeBSD. For example, say you would like to allocate 10 bytes to a string, and then free it. You could do this simply with the following code.
+
+\begin{figure}[H]
+\caption{An example of malloc() and free()}
+\begin{lstlisting}
+char *str;
+str = (char *) malloc(10);
+free(str);
+\end{lstlisting}
+\end{figure}
+
+While this is a trivial example, it shows how you would allocate and free memory in FreeBSD.
+
+As for kernel memory utilization, it uses a hybrid strategy. Smaller allocations are handeled using a power of 2 list strategy. Then using a zone allocator, zones are created for each power of two between 16 and the page size. \cite{freebsd} This hybrid strategy is beneficial mainly because each call to the allocator results in several sections of memory being available.
+
+\section{Linux Compared to FreeBSD and Windows}
+As with Windows and FreeBSD, memory management is a large topic for Linux. In fact it is essential. Linux sees many similarities to both Windows and FreeBSD in this topic. It also differs in some areas. Memory management in the Kernel is a huge topic, therefore not all topics will be covered.
+
+\subsection{Paging}
+As with Windows and FreeBSD, pages are the basic unit of memory management. What sets Linux apart from the other two operating systems covered in this paper is the simplicity of its paging system. Each page in Linux is represented by a simple page struct. This structure is defined in $<linux/mm_types.h>$ This struct can be seen below:
+
+\begin{figure}[H]
+\caption{struct page from $<linux/mm_types.h>$}
+\begin{lstlisting}
+struct page {
+	unsigned long 			flags;
+	atomic_t				_count;
+	atomic_t				_mapcount;
+	unsigned long			private;
+	struct address_space	*mapping;
+	pgoff_t					index;
+	struct list_head		lru;
+	void					*virtual;
+};
+\end{lstlisting}
+\cite{linux}
+\end{figure}
+
+As you can see, the page struct is straightforward. For the most part, the fields of the struct are self explanatory. Linux also differs in its use of Zones. Windows and FreeBSD use zones as well, but not as extensively as Linux. Zones are used to group pages of similar properties. \cite{linux} 
+
+\subsection{Shared Memory}
+The basic concepts of shared memory do not differ in Linux. Where is does differ is that it has a couple functions which make using shared memory easy for the user. As with FreeBSD and Windows, shared memory sections must be integral multiples of the system's page size. \cite{linux}
+
+To allocate shared memory in Linux you can use the $shmget()$ call. What this call does is create virtual memory pages, which are they new shared memory section. You can then use the $shmctl()$ call to control and deallocate shared memory, based on the flags you pass to it. \cite{linux}
+
+\subsection{Memory Allocation}
+As with FreeBSD, Linux has the benefit of having the $malloc()$ call to efficiently allocate memory in user space. However, on the kernel side of things, it is not so simple. For each process in Linux, there is a small fixed size stack. Early in the history of Linux the kernel stack was two pages per process. Then since 2.6, Linux has mostly moved to single page stacks. This means that each process is allocated one page. \cite{linux}
+
+In Linux there are two main types of memory allocation mappings. First there are temporary mappings. These mappings are useful when the current context cannot sleep. Permanent mappings on the other hand are used when you would like to map a page to a location in the kernel's address space. The number of permanenet mappings are limited. \cite{linux}
+
+\section{Conclusion}
+As the preceding sections suggest, memory management in modern operating systems are largely addressed the same way. It is also apparent that they provide a crucial role in how we are able to interact with a computer. There are some subtle differences that set the three operating systems, Windows, FreeBSD, and Linux apart from each other. That being said, on the highest level they all follow the same basic properties.
+
+\bibliographystyle{IEEEtran}
+\bibliography{writingAssn4}
+\end{document}
