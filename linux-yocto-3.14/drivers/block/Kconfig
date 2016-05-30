@@ -41,10 +41,6 @@ config ATARI_FLOPPY
 	tristate "Atari floppy support"
 	depends on ATARI
 
-config HW3_DRIVER
-    tristate "Homework 3 ram disk driver"
-	    help
-			no help is needed
 config MAC_FLOPPY
 	tristate "Support for PowerMac floppy"
 	depends on PPC_PMAC && !PPC_PMAC64
